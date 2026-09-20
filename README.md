@@ -1,69 +1,63 @@
 # 课程材料学习助手
 
-一个用于帮助学习 PDF 和 DOCX 课程材料的本地开发项目。计划逐步支持文件上传、内容解析、翻译、代码提取与解释、作业步骤生成，以及学习记录管理。
+面向 PDF 和 DOCX 课程资料的本地学习工具。项目包含 Next.js 前端和 FastAPI 后端，支持资料上传与解析、文本翻译、代码提取和解释、作业步骤生成、历史记录及本地备份。
 
+## 功能
+
+- 上传 PDF / DOCX，校验格式、文件内容和大小，并在本机保存原件。
+- 使用 Docling 解析文档，保留 Markdown、结构化 JSON、内容分类和来源信息；PDF 支持 OCR。
+- 将解析内容整理为 Workbench 结果，展示原文、译文、代码和作业步骤，并支持重新处理与导出。
+- 普通文本可连接本机 LibreTranslate；翻译时保护代码、公式和变量占位符。
+- 可配置 OpenAI 或 DeepSeek，用于翻译、代码提取与解释、作业拆解。未配置用户密钥时，平台 AI 仅开放代码解释和作业步骤任务。
+- 提供 Mine 历史记录、处理状态轮询、失败重试、AI 设置和 ZIP 备份/恢复。
+- API 密钥在 Windows 上使用 DPAPI 加密后保存在当前用户本地配置目录；API 不返回已保存的密钥，资料 ZIP 备份也不包含密钥。
 
 ## 技术栈
 
-- 前端：Next.js、React、TypeScript、Tailwind CSS
-- 后端：Python、FastAPI、Uvicorn
-- 开发期文件存储：本地 `storage/` 目录
+- 前端：Next.js 16、React 19、TypeScript、Tailwind CSS
+- 后端：Python、FastAPI、Uvicorn、Docling
+- 本地持久化：项目内 `storage/uploads/` 和 `storage/parsed/`；AI 设置保存在当前用户本地配置目录
 
-## 项目目录
+## 目录结构
 
 ```text
 .
 ├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI 应用入口，注册接口和错误处理
-│   │   ├── schemas.py       # 请求/响应中使用的数据格式
-│   │   ├── errors.py        # 统一错误响应
-│   │   ├── parser.py        # Docling PDF / DOCX 解析与导出
-│   │   ├── content.py       # Docling 元素到应用内容模型的映射
-│   │   ├── content_models.py # 内容块、翻译、代码和 Workbench 数据模型
-│   │   ├── translation.py   # 本地翻译、术语表和行内占位符保护
-│   │   ├── ai.py            # OpenAI-compatible 结构化 AI 调用
-│   │   ├── processing.py    # 翻译与 AI 处理接口及后台任务
-│   │   ├── task_store.py    # 本地任务状态持久化与重启恢复
-│   │   └── documents.py     # 资料接口和本地文件记录
-│   ├── .venv/               # Python 虚拟环境，不提交到 Git
-│   └── requirements.txt     # Python 后端依赖及版本
-├── docs/                    # 项目文档
-├── frontend/                # Next.js 前端
+│   ├── app/                 # FastAPI、解析、内容模型、翻译、AI、备份等
+│   ├── tests/               # 后端回归测试
+│   └── requirements.txt
+├── docs/                    # Docling、数据模型和处理流程说明
+├── frontend/
+│   ├── src/app/             # 页面与路由
+│   └── public/samples/      # 页面示例资料
 ├── storage/
-│   ├── uploads/             # 原始上传文件
-│   └── parsed/              # 解析结果
-├── .env.example             # 环境变量示例，不含真实密钥
-├── .gitignore
+│   ├── uploads/             # 上传原件与资料记录
+│   └── parsed/              # 解析结果、Workbench 与任务状态
+├── .env.example
 ├── README.md
-└── step.md                  # 开发步骤与进度
+└── step.md                  # 开发步骤与当前进度
 ```
 
 ## 环境要求
 
-- Windows 和 PowerShell
-- Node.js（包含 npm）
-- Python 3.10+
+- Windows、PowerShell
+- Node.js 和 npm
+- Python 3.10 或更高版本
+- LibreTranslate（仅在需要本地文本翻译时运行；默认连接 `http://127.0.0.1:5000`）
 
-## 首次安装
+## 安装
 
-以下命令默认在项目根目录执行。若已完成依赖安装，可以跳过本节。
+在项目根目录打开 PowerShell。
 
-### 安装前端依赖
+安装前端依赖：
 
 ```powershell
 Set-Location .\frontend
-npm install
+npm.cmd install
 Set-Location ..
 ```
 
-如果 PowerShell 报错说禁止运行 `npm.ps1`，可以把 `npm install` 改为：
-
-```powershell
-npm.cmd install
-```
-
-### 创建后端虚拟环境并安装依赖
+创建 Python 虚拟环境并安装后端依赖：
 
 ```powershell
 Set-Location .\backend
@@ -73,97 +67,82 @@ python -m venv .venv
 Set-Location ..
 ```
 
-虚拟环境将依赖安装在项目的 `backend/.venv/` 中，避免与电脑上的其他 Python 项目互相影响。`requirements.txt` 记录了后端依赖及其版本，便于在新环境中安装。
+## 配置
 
-## 启动开发服务
+复制根目录 `.env.example` 为 `.env`，按需修改配置。默认情况下，后端在项目根目录读取 `.env`，相对存储路径也以项目根目录为准。
 
-前后端需要分别在两个 PowerShell 终端中运行。两个终端的当前目录都应是项目根目录。
+常用配置：
 
-### 终端一：启动 FastAPI 后端
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | 前端调用的后端地址 |
+| `BACKEND_HOST` | `127.0.0.1` | 后端监听地址 |
+| `BACKEND_PORT` | `8000` | 后端端口 |
+| `UPLOAD_DIR` | `./storage/uploads` | 上传文件和资料记录目录 |
+| `PARSED_DIR` | `./storage/parsed` | 解析结果和任务状态目录 |
+| `MAX_UPLOAD_SIZE_MB` | `50` | 单文件大小上限 |
+| `LIBRETRANSLATE_URL` | `http://127.0.0.1:5000` | 本机 LibreTranslate 服务地址 |
+| `LIBRETRANSLATE_API_KEY` | 空 | LibreTranslate 可选密钥 |
+| `PLATFORM_AI_API_KEY` | 空 | 可选的平台 AI 服务端密钥 |
+
+也可以在应用的 AI 设置页面配置 OpenAI 或 DeepSeek 用户密钥。不要把真实密钥提交到 Git 或写入 `.env.example`。Windows DPAPI 密钥存储依赖当前 Windows 用户环境。
+
+## 启动
+
+前后端分别在两个 PowerShell 终端运行，命令从项目根目录开始。
+
+终端一：启动后端。
 
 ```powershell
 Set-Location .\backend
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- `--reload`：开发时检测代码变化并自动重启后端。
-- 健康检查：<http://127.0.0.1:8000/health>
-- API 文档：<http://127.0.0.1:8000/docs>
+后端健康检查：<http://127.0.0.1:8000/health>
 
-正常时，健康检查会返回类似结果：
+API 交互文档：<http://127.0.0.1:8000/docs>
 
-```json
-{
-  "status": "ok",
-  "service": "course-material-api"
-}
-```
-
-### 终端二：启动 Next.js 前端
+终端二：启动前端。
 
 ```powershell
 Set-Location .\frontend
-npm run dev
-```
-
-如果 PowerShell 因执行策略禁止运行 `npm.ps1`，使用：
-
-```powershell
 npm.cmd run dev
 ```
 
-启动后打开：<http://localhost:3000>
+打开 <http://localhost:3000>。停止服务时，在对应终端按 `Ctrl+C`。
 
-### 关闭服务
+## 本地测试与检查
 
-分别切换到运行前端和后端的终端，各按一次 `Ctrl + C`。
-
-## 环境变量
-
-根目录的 `.env.example` 是后续功能的配置示例。目前健康检查接口不依赖这些配置。添加真实 API Key 或其他私密配置时，请放在本地环境文件中，并确认没有提交到 Git；不要把真实密钥写入 `.env.example`。
-
-## 后端接口与本地文件保存
-
-启动后端后，可在 <http://127.0.0.1:8000/docs> 直接调用资料上传、列表、详情、状态、解析结果、Workbench、翻译与 AI 处理接口、重新生成和删除接口。接口路径统一使用 `/api/documents` 前缀。处理说明见 [Step 5 学习指南](./docs/step5-docling.md)、[Step 6 内容模型说明](./docs/step6-content-model.md) 和 [Step 7–8 翻译与 AI 处理](./docs/step7-8-processing.md)。
-
-AI 服务设置接口位于 `/api/settings/ai`，支持 OpenAI 与 DeepSeek。Key 由 Windows DPAPI 加密后保存在当前 Windows 用户目录，接口不会返回 Key；测试连接不会保存 Key。资料备份使用 `GET /api/backup/export` 生成 ZIP，`POST /api/backup/import` 合并恢复；ZIP 包含课件原件和处理结果，不包含 AI Key。设置页可授权浏览器文件夹直接保存备份，不支持文件夹授权时可下载 ZIP；导入时跳过已存在的资料。
-
-上传的原文件和 JSON 资料记录保存在 `storage/uploads/`；Markdown、Docling 原生 JSON、归一化内容块和 Workbench JSON 保存在 `storage/parsed/`，AI/翻译任务状态保存在 `storage/parsed/tasks/`。上传接口先保存文件并返回 `202`，Docling 随后在 FastAPI 本地后台任务中解析；`GET /api/documents/{id}/status` 和 Workbench 页面会轮询阶段状态。传输进度由浏览器上传事件显示，解析状态标记排队、解析和保存阶段。解析失败保留原件、错误类别及重试入口。通过 `GET /api/documents/{id}/parsed` 读取原生解析结果，通过 `GET /api/documents/{id}/workbench` 读取结构化 Workbench 数据；`POST /api/documents/{id}/process` 返回任务 ID，使用 `GET /api/documents/{id}/tasks/{task_id}` 轮询翻译或 AI 处理状态。失败任务可从工作台重新运行，服务重启时未完成任务会标记为失败。
-
-后台任务使用进程内 FastAPI `BackgroundTasks`，适合本地单进程开发，不要求额外安装 Redis。当前 Docling 解析通过线程池执行，单个解析器会串行处理文件；如需多进程、多实例或长期任务队列，再迁移到 Redis + Celery/RQ。该应用仍是本地单用户版本，没有登录系统或跨账号权限模型。
-
-普通文本翻译使用本机配置的 LibreTranslate。无用户 Key 时，平台 AI 只允许代码解释和作业步骤拆解；在 AI 页面保存 OpenAI 或 DeepSeek Key 后，可用于翻译、代码提取、代码解释和作业步骤拆解。工作台仍可为单次操作提供临时 Key，该 Key 不会保存。服务仅适用于本地单用户开发场景。
-
-AI 使用 OpenAI-compatible Chat Completions 接口。OpenAI 和 DeepSeek 使用各自固定的官方 Base URL，模型 ID 可在 AI 页面设置；客户端不能通过处理请求更换上游地址。Windows DPAPI 密钥和服务偏好保存在 `%LOCALAPPDATA%/CourseMaterialLearningAssistant/`，不会纳入 ZIP 资料备份。
-
-## 当前实现状态
-
-- [x] Next.js + TypeScript 前端项目初始化
-- [x] FastAPI 后端项目初始化
-- [x] 后端 `/health` 健康检查接口
-- [x] 后端基础接口和可恢复资料记录（重新生成预留）
-- [x] PDF / DOCX 文件持久化和大小限制
-- [x] Docling PDF / DOCX 解析与 Markdown / JSON 保存
-- [x] Step 6 内容块分类、来源位置模型和结构化 Workbench JSON
-- [x] Step 7 本地翻译流程、学术术语表和原文保护
-- [x] Step 8 AI 处理权限、结构化输出、重试与结果校验
-- [x] 上传页与 Workbench 接入资料处理 API
-- [x] 双栏文本 PDF、扫描 PDF OCR、DOCX 表格/代码解析回归（自动合成样例）
-- [x] Workbench 预览、导出和交互
-- [x] 历史记录、设置与本地备份
-- [x] Step 12 本地后台任务、进度轮询、失败恢复与重试
-- [x] Step 13 上传校验、重复上传、任务范围检查、AI JSON 和代码/公式保护自动测试
-
-## 本地回归测试
-
-在项目根目录运行后端测试：
+运行后端回归测试：
 
 ```powershell
 Set-Location .\backend
 $env:OPENBLAS_NUM_THREADS = "1"
 $env:OMP_NUM_THREADS = "1"
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-Set-Location ..
 ```
 
-测试使用临时目录，不会修改项目的本地资料存储。POSIX 权限位测试仅在 POSIX 系统运行；本工作区的 `storage/uploads` 与 `storage/parsed` ACL 已限制为工作区所有者、服务组、SYSTEM 和管理员。自定义存储目录会继承其父目录 ACL。双栏和扫描 OCR 使用合成样例，仍建议用真实课程论文及低质量扫描件补充版面质量回归。
+运行前端 lint 和 TypeScript 类型检查：
+
+```powershell
+Set-Location .\frontend
+npm.cmd run lint
+npx.cmd tsc --noEmit
+```
+
+回归测试包括 PDF / DOCX 上传校验、重复上传、Docling 双栏 PDF / OCR / DOCX 表格与代码解析、任务重试和范围校验、翻译占位符保护、AI JSON 校验及密钥日志保护。POSIX 文件权限位测试在 Windows 上会跳过。真实课程资料的版面质量仍建议单独验证。
+
+## 数据与 API 概览
+
+- `storage/uploads/` 保存上传原件和资料记录。
+- `storage/parsed/` 保存 Markdown、Docling JSON、归一化内容块、Workbench 结果和处理任务状态。
+- 上传接口返回 `202`，文档解析在 FastAPI 本地后台任务中执行；前端轮询处理状态。解析失败时原文件保留，并可重试。
+- 资料 API 使用 `/api/documents` 前缀；处理任务可通过资料详情下的任务接口查询。完整路由与参数见 `/docs`。
+- AI 设置路由为 `/api/settings/ai`；备份使用 `/api/backup/export` 和 `/api/backup/import`。
+- 本地 ZIP 备份包含资料及处理结果，不包含 AI 密钥；导入会跳过已存在的资料。
+
+## 当前范围与限制
+
+项目按本地单用户场景设计，没有登录和多用户隔离。后台任务使用 FastAPI 进程内任务机制，适合单机开发，不适用于多实例生产队列。没有部署配置或生产环境保障；上线前需另行设计数据库、对象存储、任务队列、访问控制、监控和备份策略。
+
+更多开发进度见 [step.md](./step.md)，处理和数据模型说明见 [docs](./docs/)。
